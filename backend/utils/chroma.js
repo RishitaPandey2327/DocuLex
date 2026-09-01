@@ -1,7 +1,12 @@
-const { ChromaClient } = require("chromadb");
+const { CloudClient } = require("chromadb");
 
-// Ek hi client instance poore app me reuse hoga
-const client = new ChromaClient({ path: process.env.CHROMA_URL || "http://localhost:8000" });
+// Chroma Cloud client - production me local server ke bajaye hosted service use karte hai.
+// console.trychroma.com se free account bana ke API key, tenant, database name milega.
+const client = new CloudClient({
+  apiKey: process.env.CHROMA_API_KEY,
+  tenant: process.env.CHROMA_TENANT,
+  database: process.env.CHROMA_DATABASE,
+});
 
 /**
  * Har contract ke liye apna alag ChromaDB "collection" banate hai (jaise ek alag table).
