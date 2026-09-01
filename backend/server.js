@@ -16,7 +16,7 @@ app.use(express.json()); // JSON body parse karne ke liye
 app.use(express.urlencoded({ extended: true }));
 
 // Uploaded files ko static serve karne ke liye (dev ke liye theek hai, production me S3/Cloud storage use karo)
-app.use("/uploads", express.static("uploads"));
+//app.use("/uploads", express.static("uploads"));
 
 // Health check route
 app.get("/", (req, res) => {
