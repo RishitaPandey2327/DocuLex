@@ -1,241 +1,121 @@
-# DocuLex — RAG-based Contract Clause Finder
+# DocuLex
 
-## Kya hai ye project?
-User apna contract PDF upload karta hai. System usse chunks mein todke embeddings banata hai
-aur ChromaDB mein store karta hai. User predefined clause categories (Termination, Payment,
-Confidentiality, etc.) pe click kar sakta hai ya free-text question puch sakta hai — dono
-cases mein semantic search se relevant chunks retrieve hote hain aur LLM sirf un chunks ke
-basis par grounded answer deta hai, saath mein source page number bhi.
+DocuLex is a Retrieval-Augmented Generation (RAG) application for analyzing contracts.
+Users upload a contract PDF and can then ask questions in plain language or select from
+predefined clause categories (Termination, Payment, Confidentiality, etc.). Every answer
+is generated strictly from the uploaded document and includes the page number it was
+sourced from.
 
-## Architecture decision: MongoDB + ChromaDB dono kyu?
+## Features
 
-| | MongoDB | ChromaDB |
-|---|---|---|
-| Users / Auth | ✅ | ❌ |
-| Contract metadata | ✅ | ❌ |
-| Chat history | ✅ | ❌ |
-| Document chunks + embeddings | ❌ (possible but not core strength) | ✅ |
-| Vector similarity search | ❌ (needs Atlas Vector Search) | ✅ (native, HNSW index) |
-
-Separation of concerns: MongoDB structured/relational-type data ke liye best hai, ChromaDB
-vector similarity search ke liye purpose-built hai. Isse system modular bhi rehta hai — kal
-ko ChromaDB ko Pinecone/Weaviate se replace kar sakte hain bina baaki system touch kiye.
+- User authentication (register, login, JWT-based sessions)
+- PDF upload with page-aware text extraction and chunking
+- Semantic search over contract content using vector embeddings
+- AI-generated answers grounded in the document, with page-level source citations
+- Predefined clause finder for common contract categories
+- React-based chat interface for free-form questions
 
 ## Tech Stack
-- **Frontend:** React.js (Vite) + Tailwind CSS + React Router
-- **Backend:** Node.js + Express.js
-- **Database:** MongoDB (users, contracts metadata, chat history)
-- **Vector DB:** ChromaDB (chunks + embeddings)
-- **Auth:** JWT
-- **Embeddings:** Local, via Xenova/transformers.js (no API key)
-- **LLM:** Groq (free tier, `openai/gpt-oss-20b`)
 
-## Build Phases
-- [x] **Phase 1 — Backend foundation:** Express server, MongoDB connection, JWT auth (register/login/logout/me), project structure
-- [x] **Phase 2 — PDF processing:** Upload PDF, extract text page-wise, chunk the document
-- [x] **Phase 3 — ChromaDB:** Local embeddings, ChromaDB collection per contract, similarity search endpoint
-- [x] **Phase 4 — RAG:** Groq LLM for grounded answers, predefined clause categories, source page citation
-- [x] **Phase 5 — Frontend:** React (Vite) + Tailwind — auth pages, upload dashboard, chat interface, clause finder
-- [ ] **Phase 3 — ChromaDB:** Generate embeddings, create collection, store chunks + metadata, similarity search
-- [ ] **Phase 4 — RAG:** Retrieve top-k chunks, send to LLM, grounded answer generation, handle "not found" cases
-- [ ] **Phase 5 — Frontend:** Upload UI, contract list, clause buttons, chat interface, source display
-- [ ] **Phase 6 — Polish:** User-specific contracts, error handling, deployment
+| Layer | Technology |
+|---|---|
+| Frontend | React (Vite), Tailwind CSS, React Router |
+| Backend | Node.js, Express.js |
+| Database | MongoDB (Atlas) |
+| Vector Database | ChromaDB (Chroma Cloud) |
+| Embeddings | Xenova/transformers.js — `all-MiniLM-L6-v2` (local, no API key required) |
+| LLM | Groq API — `openai/gpt-oss-20b` |
+| Authentication | JWT |
 
-## How to run Phase 1 (what's built so far)
+## Project Structure
+
+```
+DocuLex/
+├── backend/     # Express API, MongoDB models, RAG pipeline
+└── frontend/    # React application (Vite)
+```
+
+## Prerequisites
+
+- Node.js v18 or later
+- A MongoDB Atlas account (or local MongoDB instance)
+- A free Chroma Cloud account: https://console.trychroma.com
+- A free Groq API key: https://console.groq.com
+
+## Backend Setup
 
 ```bash
 cd backend
 npm install
 cp .env.example .env
-# .env me apna MONGO_URI aur JWT_SECRET set karo
+```
+
+Fill in `.env` with the following values:
+
+```
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=any_long_random_string
+JWT_EXPIRES_IN=7d
+PORT=5000
+
+CHROMA_API_KEY=your_chroma_cloud_api_key
+CHROMA_TENANT=your_chroma_tenant_id
+CHROMA_DATABASE=your_chroma_database_name
+
+GROQ_API_KEY=your_groq_api_key
+```
+
+Start the backend:
+
+```bash
 npm run dev
 ```
 
-Server `http://localhost:5000` par chalega.
+The API will be available at `http://localhost:5000`.
 
-### Test karne ke liye (Postman/curl):
-
-**Register:**
-```
-POST http://localhost:5000/api/auth/register
-Body (JSON): { "name": "Test User", "email": "test@example.com", "password": "123456" }
-```
-
-**Login:**
-```
-POST http://localhost:5000/api/auth/login
-Body (JSON): { "email": "test@example.com", "password": "123456" }
-```
-Response me `token` milega — use har protected request me header me bhejna:
-`Authorization: Bearer <token>`
-
-**Upload a contract (Phase 2):**
-```
-POST http://localhost:5000/api/contracts/upload
-Header: Authorization: Bearer <token>
-Body: form-data, key = "contract" (type: File), value = your PDF file
-```
-Response me `totalPages` aur `totalChunks` milega. Chunks temporarily
-`backend/chunks/<contractId>.json` me save ho rahe hai — Phase 3 me ye ChromaDB me embed hoke jayenge.
-
-**List my contracts:**
-```
-GET http://localhost:5000/api/contracts
-Header: Authorization: Bearer <token>
-```
-
-**Get one contract:**
-```
-GET http://localhost:5000/api/contracts/:id
-Header: Authorization: Bearer <token>
-```
-
-### Phase 2 implementation notes (interview ke liye)
-- PDF text extraction ke liye **pdfjs-dist** (Mozilla ka library, jo Firefox ke PDF viewer me bhi use hota hai) use kiya — `pdf-parse` jaisi purani libraries modern Node versions ke saath parsing issues deti hai.
-- Text extraction **page-wise** hoti hai (har page ka text alag rakha jata hai) — isse har chunk ke saath uska exact page number pata rehta hai, jo baad me "Source: Page 6" jaisa citation dikhane ke kaam aata hai.
-- Chunking **200 words per chunk with 40-word overlap** karte hai. Overlap isliye zaroori hai taaki koi important sentence do chunks ke beech me kat kar incomplete na ho jaye (retrieval quality kharab hone se bachta hai).
-
-## Phase 3 — ChromaDB + Embeddings
-
-### ChromaDB server chalana zaroori hai (alag se)
-
-ChromaDB ka Node.js package sirf ek **client** hai — usse baat karne ke liye ek Chroma
-**server** kahi na kahi chalna chahiye (bilkul MongoDB ki tarah, jiska bhi apna server hota hai).
-
-```bash
-pip install chromadb
-chroma run --path ./chroma-data --port 8000
-```
-
-Ye terminal me chalta rehna chahiye jab tak backend use kar rahe ho. `.env` me `CHROMA_URL=http://localhost:8000` already set hai.
-
-### Embeddings — local, free (no API key)
-
-Embeddings ke liye **Xenova/transformers.js** use kiya hai — ye `Xenova/all-MiniLM-L6-v2`
-model (Sentence-Transformers family) ko pure JS/ONNX runtime me local machine par chalata
-hai. Pehli baar chalane par ye model (~90MB) Hugging Face se auto-download hoga (internet
-chahiye sirf ek baar, uske baad cached rehta hai). Koi paid API key nahi chahiye.
-
-**Interview me bolne wali baat:** "Maine embedding ke liye local open-source model (all-MiniLM-L6-v2)
-use kiya taaki koi API cost na lage aur data bhi kahi bahar na jaye. Trade-off ye hai ki
-OpenAI ke `text-embedding-3` jaise paid models se thoda kam accurate hai, lekin architecture
-modular hai — `utils/embeddings.js` ko swap karke kabhi bhi OpenAI/Cohere embeddings pe switch
-kiya ja sakta hai bina baaki system touch kiye."
-
-### Upload flow ab kya karta hai
-```
-PDF upload → text extraction (page-wise) → chunking → embeddings (local model)
-→ ChromaDB me store (per-contract collection, metadata: pageNumber)
-```
-
-### Test karo (semantic search)
-
-Upload ke baad, us contract ke ID se search karo:
-```
-POST http://localhost:5000/api/contracts/:id/search
-Header: Authorization: Bearer <token>
-Body (JSON): { "query": "what happens if either party ends the agreement" }
-```
-
-Response me top-4 relevant chunks aayenge, chahe query me "terminate" word na ho —
-ye hi **semantic search** hai jo sirf keyword-matching se better hai. Har result me
-`pageNumber` aur `distance` (kam distance = zyada relevant) milega.
-
-## Phase 4 — RAG (LLM Grounded Answers + Clause Finder)
-
-### LLM: Groq (free)
-
-LLM ke liye **Groq** use kiya hai — poori tarah free hai (generous rate limit), aur bahut
-fast hai (LPU hardware par chalta hai). Model: `llama-3.3-70b-versatile`. API bhi
-OpenAI-compatible hai to future me kisi bhi provider pe switch karna easy hai.
-
-`https://console.groq.com` se free API key lo, `.env` me `GROQ_API_KEY` set karo.
-
-### Kaise kaam karta hai (poora RAG pipeline ab complete hai)
-
-```
-User question / clause category
-        ↓
-Question → embedding (same local model jisse chunks embed hue the)
-        ↓
-ChromaDB similarity search → top-4 relevant chunks
-        ↓
-Chunks + question → LLM (system prompt: "SIRF context se answer do, bahar se kuch mat lao")
-        ↓
-Grounded answer + source page numbers
-```
-
-Yehi "hallucination control" hai — LLM ko explicitly bola gaya hai ki wo apni general
-knowledge use na kare, sirf diye gaye contract excerpts se answer de. Agar info na mile
-to LLM khud bolega "The contract does not appear to specify this."
-
-### Test karo — free-text question (RAG Q&A)
-```
-POST http://localhost:5000/api/contracts/:id/ask
-Header: Authorization: Bearer <token>
-Body (JSON): { "question": "What is the notice period for termination?" }
-```
-Response:
-```json
-{
-  "question": "What is the notice period for termination?",
-  "answer": "The agreement can be terminated by either party with thirty days written notice, as stated on Page 2.",
-  "sources": [
-    { "pageNumber": 2, "snippet": "This agreement may be brought to an end..." }
-  ]
-}
-```
-
-### Test karo — predefined clause category
-```
-GET http://localhost:5000/api/contracts/:id/clause/Termination
-Header: Authorization: Bearer <token>
-```
-Valid categories: `Termination`, `Payment`, `Confidentiality`, `Liability`, `Non-Compete`,
-`Renewal`, `Intellectual Property`, `Dispute Resolution` (`utils/clauseCategories.js` me
-poori list aur unke semantic queries hai).
-
-## Phase 5 — Frontend
-
-### Design direction (interview ke liye bhi kaam aayega)
-
-Generic "AI SaaS" look (cream background + orange accent, ya rounded cards everywhere)
-jaan-bujh kar avoid kiya. Isके bajaye ek "legal ledger" aesthetic use kiya — deep ink,
-pale sage paper background, wine-red seal accent (`#7c2b34`), brass highlight (`#a9822f`).
-Typography: **Fraunces** (serif, headings) + **IBM Plex Sans** (body) — legal-document
-gravitas ke saath modern feel. Hero section me ek stylized contract excerpt dikhaya gaya
-hai jisme ek clause highlight hai aur uske neeche wahi Q&A jo product actually karta hai —
-generic gradient/illustration ki jagah asli product experience dikhaya.
-
-### Pages
-- `/` — Home (hero, how-it-works, clause categories preview)
-- `/about` — RAG pipeline explanation
-- `/login`, `/register` — auth
-- `/dashboard` — upload PDF + list of contracts (protected)
-- `/contracts/:id` — chat interface + clause finder buttons + source citations (protected)
-
-### Run it
+## Frontend Setup
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env
-# .env me VITE_API_URL already http://localhost:5000/api par set hai (default backend port)
+```
+
+By default, `.env` points to the local backend:
+
+```
+VITE_API_URL=http://localhost:5000/api
+```
+
+Start the frontend:
+
+```bash
 npm run dev
 ```
 
-Frontend `http://localhost:5173` par chalega. Backend (Phase 1-4), MongoDB, aur ChromaDB
-server bhi saath me chalne chahiye (upar ke sections dekho).
+The application will be available at `http://localhost:5173`.
 
-## Folder Structure
-```
-backend/
-  config/db.js          -> MongoDB connection
-  models/User.js         -> User schema
-  models/Contract.js     -> Contract metadata schema
-  middleware/authMiddleware.js  -> JWT verification
-  controllers/authController.js -> register/login/logout logic
-  routes/authRoutes.js
-  routes/contractRoutes.js
-  server.js              -> app entry point
-```
+## API Overview
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create a new account |
+| POST | `/api/auth/login` | Log in and receive a JWT |
+| GET | `/api/auth/me` | Get current user (protected) |
+| POST | `/api/contracts/upload` | Upload and process a contract PDF (protected) |
+| GET | `/api/contracts` | List the current user's contracts (protected) |
+| GET | `/api/contracts/:id` | Get a single contract (protected) |
+| POST | `/api/contracts/:id/search` | Raw semantic search over a contract (protected) |
+| POST | `/api/contracts/:id/ask` | Ask a free-form question (protected) |
+| GET | `/api/contracts/:id/clause/:category` | Get a predefined clause (protected) |
+
+## Deployment
+
+- **Backend:** Render (or any Node hosting) — set the environment variables listed above.
+- **Frontend:** Vercel (or any static hosting) — set `VITE_API_URL` to the deployed backend URL.
+- **Database:** MongoDB Atlas.
+- **Vector Store:** Chroma Cloud (no separate server needs to be run).
+
+## License
+
+MIT
