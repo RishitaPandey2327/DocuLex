@@ -53,9 +53,11 @@ const contract = await Contract.create({
   status: "processing",
 });
 
-    // Step 2: PDF se page-wise text nikalo
-    const filePath = path.join(__dirname, "..", "uploads", req.file.filename);
-    const { totalPages, pages } = await extractTextByPage(filePath);
+   // Step 2: PDF se page-wise text nikalo
+// PDF ab disk par save nahi ho rahi.
+// Multer ne ise memory buffer me rakha hai.
+
+const { totalPages, pages } = await extractTextByPage(req.file.buffer);
 
     // Step 3: Text ko overlapping chunks me todo
     const chunks = chunkPages(pages, contract._id.toString());
