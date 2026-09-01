@@ -61,5 +61,18 @@ async function queryCollection(collectionName, queryEmbedding, topK = 4) {
     distance: distances[i],
   }));
 }
+/**
+ * Kisi contract ki Chroma collection permanently delete karta hai.
+ */
+async function deleteCollection(collectionName) {
+  return client.deleteCollection({
+    name: collectionName,
+  });
+}
 
-module.exports = { getOrCreateCollection, addChunksToCollection, queryCollection };
+module.exports = {
+  getOrCreateCollection,
+  addChunksToCollection,
+  queryCollection,
+  deleteCollection,
+};
