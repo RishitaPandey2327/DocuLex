@@ -39,13 +39,19 @@ const uploadContract = async (req, res) => {
     }
 
     // Step 1: DB me ek entry banao pehle (taaki humein contractId mil jaye chunk-naming ke liye)
-    const contract = await Contract.create({
-      user: req.user._id,
-      originalFileName: req.file.originalname,
-      storedFileName: req.file.filename,
-      chromaCollectionName: `contract_${req.file.filename.split(".")[0]}`,
-      status: "processing",
-    });
+   // Memory storage use kar rahe hain,
+// isliye multer filename provide nahi karega.
+// Hum ek internal unique name generate kar rahe hain.
+const uniqueFileName =
+  Date.now() + "-" + Math.round(Math.random() * 1e9) + ".pdf";
+
+const contract = await Contract.create({
+  user: req.user._id,
+  originalFileName: req.file.originalname,
+  storedFileName: uniqueFileName,
+  chromaCollectionName: `contract_${uniqueFileName.split(".")[0]}`,
+  status: "processing",
+});
 
     // Step 2: PDF se page-wise text nikalo
     const filePath = path.join(__dirname, "..", "uploads", req.file.filename);
