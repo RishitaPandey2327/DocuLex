@@ -3,7 +3,11 @@ const Contract = require("../models/Contract");
 const { extractTextByPage } = require("../utils/pdfProcessor");
 const { chunkPages } = require("../utils/chunker");
 const { generateEmbeddings } = require("../utils/embeddings");
-const { addChunksToCollection, queryCollection } = require("../utils/chroma");
+const {
+  addChunksToCollection,
+  queryCollection,
+  deleteCollection,
+} = require("../utils/chroma");
 const { generateGroundedAnswer } = require("../utils/llm");
 const { CLAUSE_CATEGORIES } = require("../utils/clauseCategories");
 
@@ -218,6 +222,48 @@ const getContractById = async (req, res) => {
   }
 };
 
+// @route DELETE /api/contracts/:id
+// Logged-in user ka contract + uski Chroma collection delete karta hai.
+const deleteContract = async (req, res) => {
+  try {
+    // Sirf current user's contract hi find hoga
+    const contract = await Contract.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        message: "Contract not found",
+      });
+    }
+
+    // Chroma collection delete karo
+    // Agar collection already missing hai, MongoDB record phir bhi delete
+    // karne denge, taaki orphaned contract na rahe.
+    try {
+      await deleteCollection(contract.chromaCollectionName);
+    } catch (chromaError) {
+      console.error("Chroma collection delete warning:", chromaError.message);
+    }
+
+    // MongoDB se contract metadata delete karo
+    await Contract.deleteOne({
+      _id: contract._id,
+      user: req.user._id,
+    });
+
+    return res.status(200).json({
+      message: "Contract deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error while deleting contract",
+    });
+  }
+};
 module.exports = {
   uploadContract,
   getMyContracts,
@@ -225,4 +271,5 @@ module.exports = {
   searchContract,
   askQuestion,
   findClause,
+  deleteContract,
 };
