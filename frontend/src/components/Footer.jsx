@@ -39,7 +39,7 @@ export default function Footer() {
           <h3 className="text-sm font-medium text-ink mb-3">Contact &amp; License</h3>
           <ul className="space-y-2 text-sm text-ink-soft">
             <li>
-              <a href="mailto:hello@doculex.app" className="hover:text-seal transition-colors">
+              <a href="mailto:rishitap309@gmail.com" className="hover:text-seal transition-colors">
                 hello@doculex.app
               </a>
             </li>
