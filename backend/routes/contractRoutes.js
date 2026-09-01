@@ -9,12 +9,14 @@ const {
   searchContract,
   askQuestion,
   findClause,
+  deleteContract,
 } = require("../controllers/contractController");
 
 // Phase 2 routes
 router.post("/upload", protect, upload.single("contract"), uploadContract);
 router.get("/", protect, getMyContracts);
 router.get("/:id", protect, getContractById);
+router.delete("/:id", protect, deleteContract);
 
 // Phase 3 route - raw semantic search (debugging/testing)
 router.post("/:id/search", protect, searchContract);
