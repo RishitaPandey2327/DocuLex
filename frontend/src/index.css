@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  /* -- Palette: "legal ledger" -- deep ink, pale sage paper, wine-red seal accent, brass highlight.
+     Deliberately avoiding warm-cream/terracotta and near-black/neon-green defaults. */
+  --color-ink: #12151c;
+  --color-ink-soft: #2b3140;
+  --color-paper: #eef0ea;
+  --color-paper-raised: #f7f8f4;
+  --color-line: #d7dad0;
+  --color-seal: #7c2b34;
+  --color-seal-dark: #5e1f27;
+  --color-brass: #a9822f;
+  --color-brass-soft: #cfae6c;
+
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+
+  ::selection {
+    background-color: var(--color-brass-soft);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-seal);
+    outline-offset: 2px;
+  }
+}
