@@ -56,6 +56,28 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteContract = async (contractId, fileName) => {
+  const confirmed = window.confirm(
+    `Are you sure you want to delete "${fileName}"?\n\nThis will permanently remove the contract and its stored AI search data.`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setError("");
+
+    await api.delete(`/contracts/${contractId}`);
+
+    // Delete ke baad fresh list load karo
+    await loadContracts();
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+        "Could not delete the contract. Please try again."
+    );
+  }
+};
+
   return (
     <section className="mx-auto max-w-4xl px-6 py-14">
       <div className="flex items-center justify-between flex-wrap gap-4 mb-10">
@@ -97,26 +119,50 @@ export default function Dashboard() {
       ) : (
         <ul className="divide-y divide-line border border-line rounded-sm overflow-hidden">
           {contracts.map((c) => (
-            <li key={c._id}>
-              <button
-                onClick={() => c.status === "completed" && navigate(`/contracts/${c._id}`)}
-                disabled={c.status !== "completed"}
-                className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 bg-paper-raised hover:bg-paper transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-ink truncate">{c.originalFileName}</p>
-                  <p className="text-xs text-ink-soft mt-0.5">
-                    {c.totalPages ? `${c.totalPages} pages` : "—"} · Uploaded{" "}
-                    {new Date(c.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_STYLES[c.status] || ""}`}
-                >
-                  {c.status}
-                </span>
-              </button>
-            </li>
+            <li
+  key={c._id}
+  className="flex items-center justify-between gap-4 px-5 py-4 bg-paper-raised hover:bg-paper transition-colors"
+>
+  {/* Contract information */}
+  <button
+    onClick={() =>
+      c.status === "completed" && navigate(`/contracts/${c._id}`)
+    }
+    disabled={c.status !== "completed"}
+    className="flex-1 min-w-0 text-left disabled:cursor-not-allowed disabled:opacity-70"
+  >
+    <div className="min-w-0">
+      <p className="font-medium text-ink truncate">
+        {c.originalFileName}
+      </p>
+
+      <p className="text-xs text-ink-soft mt-0.5">
+        {c.totalPages ? `${c.totalPages} pages` : "—"} · Uploaded{" "}
+        {new Date(c.createdAt).toLocaleDateString()}
+      </p>
+    </div>
+  </button>
+
+  {/* Status */}
+  <span
+    className={`shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${
+      STATUS_STYLES[c.status] || ""
+    }`}
+  >
+    {c.status}
+  </span>
+
+  {/* Delete */}
+  <button
+    onClick={() =>
+      handleDeleteContract(c._id, c.originalFileName)
+    }
+    className="shrink-0 px-3 py-1.5 text-sm border border-line rounded-sm text-seal hover:bg-[#f5e2e1] transition-colors"
+    title="Delete contract"
+  >
+    Delete
+  </button>
+</li>
           ))}
         </ul>
       )}
