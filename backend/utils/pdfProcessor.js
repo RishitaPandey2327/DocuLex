@@ -1,26 +1,37 @@
 const path = require("path");
-const fs = require("fs");
 
 /**
- * Hum pdfjs-dist (Mozilla ki actively-maintained PDF library) use kar rahe hai text
- * extraction ke liye. Purani "pdf-parse" library kaafi outdated ho chuki hai aur
- * modern Node.js versions ke saath parsing errors deti hai, isliye pdfjs-dist better
- * choice hai - same engine jo Firefox ka PDF viewer use karta hai.
+ * PDF se page-wise text extract karta hai.
  *
- * Output: { totalPages, pages: [{ pageNumber, text }, ...] }
- * Har page ka text alag rakha gaya hai taaki baad me har chunk ke saath
- * "Source: Page X" bata sake (grounded answer ke liye zaroori hai).
+ * Ab PDF disk path se nahi,
+ * directly uploaded Buffer se read hogi.
+ *
+ * Output:
+ * {
+ *   totalPages,
+ *   pages: [
+ *     {
+ *       pageNumber,
+ *       text
+ *     }
+ *   ]
+ * }
  */
-async function extractTextByPage(filePath) {
-  // pdfjs-dist ka legacy build ESM module hai, isliye dynamic import() use kar rahe hai
+
+async function extractTextByPage(fileBuffer) {
+  // pdfjs-dist ka legacy build ESM module hai,
+  // isliye dynamic import use kar rahe hain.
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-  // Standard fonts ka data path dena zaroori hai warna kuch PDFs me warning/errors aate hai
+  // Standard fonts ka path
   const standardFontDataUrl =
-    path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts") +
-    path.sep;
+    path.join(
+      path.dirname(require.resolve("pdfjs-dist/package.json")),
+      "standard_fonts"
+    ) + path.sep;
 
-  const data = new Uint8Array(fs.readFileSync(filePath));
+  // Buffer ko Uint8Array me convert karo
+  const data = new Uint8Array(fileBuffer);
 
   const loadingTask = pdfjsLib.getDocument({
     data,
@@ -28,15 +39,20 @@ async function extractTextByPage(filePath) {
   });
 
   const pdfDocument = await loadingTask.promise;
+
   const totalPages = pdfDocument.numPages;
   const pages = [];
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
     const page = await pdfDocument.getPage(pageNum);
+
     const textContent = await page.getTextContent();
 
-    // Text items ko join karke ek readable paragraph banate hai
-    const pageText = textContent.items.map((item) => item.str).join(" ").trim();
+    // Saare text items ko ek readable string me join karo
+    const pageText = textContent.items
+      .map((item) => item.str)
+      .join(" ")
+      .trim();
 
     pages.push({
       pageNumber: pageNum,
@@ -46,7 +62,12 @@ async function extractTextByPage(filePath) {
 
   await loadingTask.destroy();
 
-  return { totalPages, pages };
+  return {
+    totalPages,
+    pages,
+  };
 }
 
-module.exports = { extractTextByPage };
+module.exports = {
+  extractTextByPage,
+};
